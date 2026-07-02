@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2011/10/nuspec.xsd">
 	<metadata>
 		<id>MATLAB.MexTools</id>
-		<version>7.1.3</version>
+		<version>7.2.0</version>
 		<description>
 			使用本工具快速生成 MATLAB C++ MEX 数据API文件函数.mexw64。你只需要在 Visual Studio 中新建一个C++动态链接库项目，添加此NuGet程序包，定义初始化、执行、清理三个函数，就可以生成出合法的MEX文件函数。此外，本工具还额外提供强大的异常处理、C++/MATLAB数据交换和对象生命周期管理功能。
 			支持的平台：x64。支持的平台工具集：v143 v145。

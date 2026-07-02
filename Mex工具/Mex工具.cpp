@@ -202,13 +202,26 @@ namespace Mex工具
 		const std::u16string MATLAB转换函数<uint32_t>::value = u"uint32";
 		const std::u16string MATLAB转换函数<uint64_t>::value = u"uint64";
 	}
-	std::unique_ptr<char16_t[], decltype(LocalFree)*> WindowsErrorMessage(int ExceptionCode)noexcept
+	std::unique_ptr<char16_t[], void* (*)(void*)> WindowsErrorMessage(uint32_t 错误码)noexcept
 	{
+		constexpr DWORD 语言ID = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
 		LPWSTR 错误信息;
-		FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, ExceptionCode, MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED), (LPWSTR)&错误信息, 1, nullptr);
-		return std::unique_ptr<char16_t[], decltype(LocalFree)*>(reinterpret_cast<char16_t*>(错误信息), LocalFree);
+		if (FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM, nullptr, 错误码, 语言ID, reinterpret_cast<LPWSTR>(&错误信息), 0, nullptr))
+			return {reinterpret_cast<char16_t*>(错误信息), LocalFree};
+		if (HRESULT_FACILITY(static_cast<HRESULT>(错误码)) == FACILITY_WIN32)
+			if (DWORD const Win32错误码 = HRESULT_CODE(static_cast<HRESULT>(错误码)))
+				if (FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM, nullptr, Win32错误码, 语言ID, reinterpret_cast<LPWSTR>(&错误信息), 0, nullptr))
+					return {reinterpret_cast<char16_t*>(错误信息), LocalFree};
+		static HMODULE const Ntdll = GetModuleHandleW(L"ntdll.dll");
+		if (FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_HMODULE, Ntdll, 错误码, 语言ID, reinterpret_cast<LPWSTR>(&错误信息), 0, nullptr))
+			return {reinterpret_cast<char16_t*>(错误信息), LocalFree};
+		if (错误码 & FACILITY_NT_BIT && FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_HMODULE, Ntdll, 错误码 & ~FACILITY_NT_BIT, 语言ID, reinterpret_cast<LPWSTR>(&错误信息), 0, nullptr))
+			return {reinterpret_cast<char16_t*>(错误信息), LocalFree};
+		错误信息 = static_cast<LPWSTR>(LocalAlloc(0, 11 * sizeof(wchar_t)));
+		swprintf(错误信息, L"0x%08X", 错误码);
+		return {reinterpret_cast<char16_t*>(错误信息), LocalFree};
 	}
-	std::unique_ptr<char16_t[], decltype(LocalFree)*> WindowsErrorMessage()noexcept
+	std::unique_ptr<char16_t[], void* (*)(void*)> WindowsErrorMessage()noexcept
 	{
 		return WindowsErrorMessage(GetLastError());
 	}
@@ -254,12 +267,9 @@ namespace Mex工具
 }
 using namespace Mex工具;
 using namespace matlab::mex;
-static void SEH处理(DWORD 错误代码)
+[[noreturn]]static inline void SEH处理(DWORD 错误代码)
 {
-	LPWSTR 错误信息;
-	FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, 错误代码, MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED), (LPWSTR)&错误信息, 1, nullptr);
-	const std::unique_ptr<wchar_t, decltype(&LocalFree)> 错误信息指针(错误信息, LocalFree);
-	throw matlab::engine::MATLABException("MexTools:Unexpected_SEH_exception", reinterpret_cast<char16_t*>(错误信息));
+	throw matlab::engine::MATLABException("MexTools:Unexpected_SEH_exception", WindowsErrorMessage(错误代码).get());
 }
 static void SEH安全(const std::move_only_function<void()const>& 函数)
 {

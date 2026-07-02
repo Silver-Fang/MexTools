@@ -245,7 +245,7 @@ namespace Mex工具
 	void EnumWarning(标识符类型 标识符, 消息类型...消息);
 
 	//将Windows错误代码转换为消息字符串
-	std::unique_ptr<char16_t[], void* (*)(void*)> WindowsErrorMessage(int ExceptionCode)noexcept;
+	std::unique_ptr<char16_t[], void* (*)(void*)> WindowsErrorMessage(uint32_t ExceptionCode)noexcept;
 
 	//自动获取上一个Windows错误代码，转换为消息字符串。
 	std::unique_ptr<char16_t[], void* (*)(void*)> WindowsErrorMessage()noexcept;
